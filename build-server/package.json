@@ -1,0 +1,13 @@
+{
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.864.0",
+        "@types/node": "^24.3.0",
+        "path": "^0.12.7",
+        "typescript": "^5.9.2"
+    },
+    "scripts": {
+        "build": "tsc -b",
+        "start": "node dist/script.js",
+        "dev": "pnpm run build && pnpm run start"
+    }
+}
