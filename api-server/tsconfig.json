@@ -1,0 +1,33 @@
+{
+    "compilerOptions": {
+        "module": "nodenext", // Better than "ESNext" for Node projects
+        "moduleResolution": "nodenext", // Essential when using "nodenext" module
+        "target": "esnext",
+        "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "esModuleInterop": true, // Add this if it's missing
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "baseUrl": ".",
+        /* Keep your existing stricter settings */
+        "sourceMap": true,
+        "declaration": true,
+        "declarationMap": true,
+        "noUncheckedIndexedAccess": true,
+        "exactOptionalPropertyTypes": true,
+        "jsx": "react-jsx",
+        "verbatimModuleSyntax": true,
+        "isolatedModules": true,
+        "noUncheckedSideEffectImports": true,
+        "moduleDetection": "force",
+        "skipLibCheck": true
+    },
+    "include": [
+            "src/**/*"
+    ], // Only look inside src for the build
+    "exclude": [
+        "node_modules",
+        "dist",
+        "prisma.config.ts"
+    ]
+}
