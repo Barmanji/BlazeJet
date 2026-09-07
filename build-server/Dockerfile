@@ -11,19 +11,21 @@ RUN apt-get install -y git
 COPY /scripts/main.sh /scripts/main.sh
 COPY /src/script.ts /src/script.ts
 COPY package*.json .
+COPY kafka.pem kafka.pem
 COPY pnpm-lock.yaml pnpm-lock.yaml
 COPY tsconfig.json tsconfig.json
-COPY tsconfig.tsbuildinfo tsconfig.tsbuildinfo
 
 # NI
 RUN npm install -g pnpm
 
-# pnpm to install dep
+# pnpm to install dep (includes devDeps like typescript)
 RUN pnpm install
 
-# NOTE: give exectue to all __uog__ (owner other group)
+# compile TypeScript
+RUN pnpm run build
+
+# NOTE: give execute to all (owner other group)
 RUN chmod +x /scripts/main.sh
-RUN chmod +x /src/script.ts
 
 # Set entry point for script launch
 ENTRYPOINT [ "/scripts/main.sh" ]

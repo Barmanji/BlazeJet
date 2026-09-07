@@ -4,7 +4,7 @@ import httpProxy from 'http-proxy'
 const app = express()
 const PORT = 8000
 
-const BASE_PATH = 'https://vercel-clone-outputs-1.s3.ap-south-1.amazonaws.com/__outputs'
+const BASE_PATH = `https://vercel-clone-objectstorage-output.s3.us-east-1.amazonaws.com/__outputs/`
 
 const proxy = httpProxy.createProxy()
 
@@ -19,7 +19,7 @@ app.use((req: Request , res: Response) => {
 
     const id = '12dfefb7-55dd-4fbf-9c4a-9fd5c0412328'
 
-    const resolvesTo = `${BASE_PATH}/${id}`
+    const resolvesTo = `${BASE_PATH}/${subdomain}`
 
     return proxy.web(req, res, { target: resolvesTo, changeOrigin: true })
 

@@ -1,40 +1,46 @@
+import "dotenv/config";
 import express, {} from "express";
 import { generateSlug } from "random-word-slugs";
 import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
 import { Server } from "socket.io";
 import cors from "cors";
 import { z } from "zod";
-import { PrismaClient } from './generated/client.js';
+import { PrismaClient } from "./generated/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createClient } from "@clickhouse/client";
 import { Kafka } from "kafkajs";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 9000;
 const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false,
+    },
 });
 const prisma = new PrismaClient({ adapter });
 const io = new Server({ cors: { origin: "*" } });
 const kafka = new Kafka({
     clientId: `api-server`,
-    brokers: [""],
+    brokers: [process.env.CLIENT_ID],
     ssl: {
-        ca: [fs.readFileSync(path.join(__dirname, "kafka.pem"), "utf-8")],
+        ca: [fs.readFileSync(path.join(__dirname, "../prisma/ca.pem"), "utf-8")],
     },
     sasl: {
-        username: "",
-        password: "",
         mechanism: "plain",
-    },
+        username: process.env.CLIENT_USERNAME,
+        password: process.env.CLIENT_SECRET,
+    }
 });
 const client = createClient({
-    host: "",
-    database: "",
-    username: "",
-    password: "",
+    host: process.env.CLICKHOUSE_CLIENT_ID || "http://localhost:8123", // Points to your local engine
+    database: "default",
+    username: "default", // Changed from avnadmin to your local default user
+    password: "secure123", // Your new local password
 });
 const consumer = kafka.consumer({ groupId: "api-server-logs-consumer" });
 io.on("connection", (socket) => {
@@ -52,28 +58,33 @@ const ecsClient = new ECSClient({
     },
 });
 const config = {
-    CLUSTER: "",
-    TASK: "",
+    CLUSTER: "arn:aws:ecr:us-east-1:955423509499:repository/builder-server",
+    TASK: "arn:aws:ecs:us-east-1:955423509499:task-definition/builder-task",
 };
 app.use(express.json());
 app.use(cors());
 app.post("/project", async (req, res) => {
     const schema = z.object({
-        name: z.string(),
+        name: z.string().optional(),
         gitURL: z.string(),
+        slug: z.string().optional(),
     });
     const safeParseResult = schema.safeParse(req.body);
     if (safeParseResult.error)
         return res.status(400).json({ error: safeParseResult.error });
-    const { name, gitURL } = safeParseResult.data;
+    const { name, gitURL, slug } = safeParseResult.data;
+    const subDomain = slug || generateSlug();
     const project = await prisma.project.create({
         data: {
-            name,
+            name: name || subDomain,
             gitURL,
-            subDomain: generateSlug(),
+            subDomain,
         },
     });
-    return res.json({ status: "success", data: { project } });
+    return res.json({
+        status: "success",
+        data: { projectSlug: subDomain, url: `http://${subDomain}.localhost:8000` },
+    });
 });
 app.post("/deploy", async (req, res) => {
     const { projectId } = req.body;
@@ -97,21 +108,32 @@ app.post("/deploy", async (req, res) => {
             awsvpcConfiguration: {
                 assignPublicIp: "ENABLED",
                 subnets: [
-                    "subnet-0c364045c881f1aad",
-                    "subnet-0b70fd02fcb7a6d19",
-                    "subnet-0c1ddfb525fdc0198",
+                    "subnet-0f5c5ff33c858ea1a",
+                    "subnet-035d4db6115846281",
+                    "subnet-subnet-0a866352e0493704f",
+                    "subnet-0711f8a535a18f47b",
+                    "subnet-03f8b19634efc2b6a",
+                    "subnet-02f19b7777bc9eb5b"
                 ],
-                securityGroups: ["sg-0f68ac449a85ac7f6"],
+                securityGroups: ["sg-0e57bf078eb071868"],
             },
         },
         overrides: {
             containerOverrides: [
                 {
-                    name: "build-server-img",
+                    name: "builder-image",
                     environment: [
                         { name: "GIT_REPOSITORY__URL", value: project.gitURL },
                         { name: "PROJECT_ID", value: projectId },
                         { name: "DEPLOYEMENT_ID", value: deployment.id },
+                        { name: "CLIENT_ID", value: process.env.CLIENT_ID },
+                        { name: "CLIENT_USERNAME", value: process.env.CLIENT_USERNAME },
+                        { name: "CLIENT_SECRET", value: process.env.CLIENT_SECRET },
+                        { name: "AWS_ACCESS_KEY_ID", value: process.env.AWS_ACCESS_KEY_ID },
+                        {
+                            name: "AWS_SECRET_ACCESS_KEY",
+                            value: process.env.AWS_SECRET_ACCESS_KEY,
+                        },
                     ],
                 },
             ],
