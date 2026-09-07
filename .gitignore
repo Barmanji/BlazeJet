@@ -2,3 +2,5 @@ AGENTS.md
 AGENT.md
 *.pem
 
+*.env
+*env
